@@ -1,0 +1,40 @@
+function onEdit() {
+  try {
+    Logger.log("Script ejecutado");
+
+    const sheet = SpreadsheetApp.getActiveSheet();
+    const range = sheet.getActiveRange();
+    const sheetName = sheet.getName();
+    const colIndex = range.getColumn();
+    const rowStart = range.getRow();
+    const rowEnd = range.getLastRow();
+
+    Logger.log("Rango editado: " + range.getA1Notation());
+
+    if (sheetName === "Ingresos conf de tx" && colIndex === 3) {
+      const values = range.getValues();
+
+      // Establecer el formato de la columna RIF como texto
+      const rifColumnRange = sheet.getRange(rowStart, colIndex, rowEnd - rowStart + 1, 1);
+      rifColumnRange.setNumberFormat("@"); // Formato de texto
+
+      for (let i = 0; i < values.length; i++) {
+        let newValue = values[i][0];
+
+        if (typeof newValue === 'number') {
+          newValue = newValue.toString();
+        }
+
+        if (newValue && !newValue.startsWith("J")) {
+          newValue = "J" + newValue; 
+        }
+
+        values[i][0] = newValue; // Asignar el valor como cadena
+      }
+
+      range.setValues(values);
+    }
+  } catch (error) {
+    Logger.log("Error: " + error);
+  }
+}
