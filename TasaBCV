@@ -1,0 +1,53 @@
+function TasaBCV() {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+    var url = 'https://www.bcv.org.ve/';
+    var response = UrlFetchApp.fetch(url, {'muteHttpExceptions': true});
+    var data = response.getContentText();
+
+    var cambio = /<div id="dolar"[^>]*>[\s\S]*?<strong>\s*([\d,\.]+)\s*<\/strong>/;
+    var match = data.match(cambio);
+
+    if (match && match[1]) {
+      var rateText = match[1].replace(/,/g, '.');
+      var rate = parseFloat(rateText);
+      rate = Math.round(rate * 100) / 100;
+
+      var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+
+      var lastRow = sheet.getLastRow();
+      var existingDate = lastRow > 0 ? sheet.getRange(lastRow, 1).getValue() : null;
+
+      if (today !== existingDate) {
+        sheet.appendRow([today, rate]);
+        Logger.log('Fecha añadida: ' + rate);
+      } else {
+        Logger.log('La fecha de hoy ya fue añadida');
+      }
+
+    } else {
+      Logger.log('No se encontró tasa de cambio en la página: ' + data.substring(0,500));
+    }
+
+  } catch (error) {
+    Logger.log('Error: ' + error);
+  }
+}
+
+function createTimeDrivenTrigger() {
+  // First, delete any existing triggers to avoid duplicates
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() == 'TasaBCV') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  
+  // Create a new time-driven trigger to run the function daily
+  ScriptApp.newTrigger('TasaBCV')
+    .timeBased()
+    .everyDays(1)
+    .atHour(9) // Adjust the time as needed
+    .create();
+}
