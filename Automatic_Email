@@ -1,0 +1,66 @@
+function correoBancas() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  const data = sheet.getDataRange().getValues();
+
+  Logger.log("Datos leídos de la hoja de cálculo."); // Log después de leer los datos
+
+  // Crea los diccionarios para enviar los emails
+
+  const emailsClientes = {};
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][4] === "SI") {
+      const cliente = data[i][0];
+      const emailCliente = data[i][5];
+      const fechaTransaccion = Utilities.formatDate(new Date(data[i][1]), Session.getScriptTimeZone(), "dd/MM/yyyy");
+      const diferenciaDias = data[i][3];
+
+      if (!emailsClientes[emailCliente]) {
+        emailsClientes[emailCliente] = [];
+      }
+      emailsClientes[emailCliente].push({ cliente, fechaTransaccion, diferenciaDias });
+    }
+  }
+
+  Logger.log(`Clientes agrupados por correo electrónico: ${Object.keys(emailsClientes).length} destinatarios`);
+
+  const remitente = '"Gerencia Productos de Cobro y Pagos" <gerencia_productos_cobro_pagos_ve@banesco.com>';
+  const ccEmails = "gerencia_productos_cobro_pagos_ve@banesco.com, ygomezr@banesco.com";
+
+  Object.keys(emailsClientes).forEach(email => {
+    if (emailsClientes[email].length === 0) {
+      Logger.log(`No hay clientes para enviar correo a ${email}`);
+      return;
+    }
+
+    const filasTabla = emailsClientes[email].map(clienteData => (
+      `<tr><td>${clienteData.cliente}</td><td>${clienteData.fechaTransaccion}</td><td>${clienteData.diferenciaDias}</td></tr>`
+    ));
+
+    let cuerpo = `
+      <p>Buen dia,</p>
+      <p>Sirva el presente para informar de los clientes de BanescoPagos que no transan desde hace más de 2 semanas, pertenecientes a su segmento:</p>
+      <table border='1' style='border-collapse: collapse; width: 100%;'>
+        <tr><th>Cliente</th><th>Fecha de última transacción</th><th>Días sin Transar</th></tr>
+        ${filasTabla.join('')}
+      </table>
+      <p>Por favor, indicar al gerente de relación / gerente de agencia para conocer porqué el cliente no hace uso del servicio e incentivarlo que lo use con mayor frecuencia.</p>
+      <p>Saludos,</p>
+    `;
+
+    try {
+      const mensaje = GmailApp.sendEmail(email, "Alerta de clientes que no transan en BanescoPagos", "", {
+        htmlBody: cuerpo,
+        cc: ccEmails,
+        from: remitente
+      });
+
+      GmailApp.getUserLabelByName("Importante").addToThread(mensaje.getThread());
+
+      Logger.log(`Correo enviado a ${email} con etiqueta "Importante"`);
+    } catch (error) {
+      Logger.log(`Error al enviar correo a ${email}: ${error}`);
+    }
+  });
+}
